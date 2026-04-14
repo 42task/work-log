@@ -2,11 +2,11 @@
 
 import {
   installKiroHook,
-} from "./lib/codex-worklog-installer.mjs";
+} from "./lib/work-log-installer.mjs";
 
 function printUsage() {
   console.log(`Usage:
-  node install-kiro-worklog-hook.mjs --project <path>
+  node install-kiro-work-log.mjs --project <path>
 
 Options:
   --project <path> Install into <path>/.kiro/hooks for one repository
@@ -50,7 +50,7 @@ async function main() {
     targetRoot: parsed.projectPath,
   });
 
-  console.log("Installed Kiro worklog hook");
+  console.log("Installed Work Log for Kiro");
   console.log(`Hooks directory: ${result.hooksRoot}`);
   console.log(`Hook file: ${result.hookPath}`);
   console.log("Restart Kiro if it does not pick up the new hook automatically.");

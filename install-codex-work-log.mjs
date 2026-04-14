@@ -2,13 +2,13 @@
 
 import {
   installWorklogHook,
-  resolveCliTarget,
-} from "./lib/codex-worklog-installer.mjs";
+  resolveCodexCliTarget,
+} from "./lib/work-log-installer.mjs";
 
 function printUsage() {
   console.log(`Usage:
-  node install-codex-worklog-hook.mjs --global [--force]
-  node install-codex-worklog-hook.mjs --project <path> [--force]
+  node install-codex-work-log.mjs --global [--force]
+  node install-codex-work-log.mjs --project <path> [--force]
 
 Options:
   --global         Install into ~/.codex for all Codex sessions on this machine
@@ -66,14 +66,14 @@ async function main() {
     return;
   }
 
-  const targetRoot = resolveCliTarget(parsed);
+  const targetRoot = resolveCodexCliTarget(parsed);
   const result = await installWorklogHook({
     scope: parsed.scope,
     targetRoot,
     force: parsed.force,
   });
 
-  console.log(`Installed Codex worklog hook (${result.scope})`);
+  console.log(`Installed Work Log for Codex (${result.scope})`);
   console.log(`Managed files: ${result.managedRoot}`);
   console.log(`Config file: ${result.configPath}`);
   console.log(`Hooks file: ${result.hooksPath}`);

@@ -17,17 +17,21 @@ import {
 import {
   HOOK_STATUS_MESSAGES,
   buildHookCommands,
+  buildClaudeHookCommands,
+  installClaudeHook,
   installKiroHook,
   installWorklogHook,
+  mergeClaudeSettingsJsonText,
   mergeHooksJsonText,
   upsertCodexHooksFeature,
-} from "../lib/codex-worklog-installer.mjs";
+} from "../lib/work-log-installer.mjs";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
 const templateRoot = path.join(repoRoot, "template");
+const claudeTemplateRoot = path.join(repoRoot, "claude");
 const internalTitlePrompt = `You are a helpful assistant. You will be presented with a user prompt, and your job is to provide a short title for a task that will be created from that prompt.
 The tasks typically have to do with coding-related tasks, for example requests for bug fixes or questions about a codebase. The title you generate will be shown in the UI to represent the prompt.
 Generate a concise UI title (18-36 characters) for this task.
@@ -82,6 +86,33 @@ async function prepareHookRepo() {
   };
 }
 
+async function prepareClaudeHookRepo() {
+  const tempRoot = await mkdtemp(
+    path.join(os.tmpdir(), "claude-work-log-runtime-"),
+  );
+  const worktreeRoot = path.join(tempRoot, "repo");
+  const hookRoot = path.join(worktreeRoot, ".claude", "worklog-hook");
+  await mkdir(worktreeRoot, { recursive: true });
+  await mkdir(hookRoot, { recursive: true });
+  runCommand("git", ["init", "-q"], { cwd: worktreeRoot });
+
+  for (const filename of [
+    "cache_user_prompt.py",
+    "log_turn.py",
+    "summary_schema.json",
+  ]) {
+    await copyFile(
+      path.join(claudeTemplateRoot, filename),
+      path.join(hookRoot, filename),
+    );
+  }
+
+  return {
+    worktreeRoot,
+    hookRoot,
+  };
+}
+
 function runHookScript(scriptPath, payload, options = {}) {
   const result = runCommand(
     "/usr/bin/python3",
@@ -99,6 +130,14 @@ async function findLogFile(worktreeRoot) {
   const entries = await readdir(logRoot);
   const rawLog = entries.find((entry) => entry.startsWith("raw-"));
   assert.ok(rawLog, "expected a raw work-log file to be created");
+  return path.join(logRoot, rawLog);
+}
+
+async function findClaudeLogFile(worktreeRoot) {
+  const logRoot = path.join(worktreeRoot, ".claude", "work-log");
+  const entries = await readdir(logRoot);
+  const rawLog = entries.find((entry) => entry.startsWith("raw-"));
+  assert.ok(rawLog, "expected a raw Claude work-log file to be created");
   return path.join(logRoot, rawLog);
 }
 
@@ -166,6 +205,40 @@ test("mergeHooksJsonText preserves existing hooks and installs managed entries i
     ).length,
     1,
   );
+});
+
+test("mergeClaudeSettingsJsonText preserves existing settings and installs managed entries idempotently", () => {
+  const commands = buildClaudeHookCommands({
+    scope: "project",
+    targetRoot: "/tmp/example-repo/.claude",
+  });
+  const existing = JSON.stringify(
+    {
+      theme: "dark",
+      hooks: {
+        Stop: [
+          {
+            hooks: [
+              {
+                type: "command",
+                command: "echo existing-stop",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    null,
+    2,
+  );
+
+  const merged = mergeClaudeSettingsJsonText(existing, commands);
+  const mergedAgain = mergeClaudeSettingsJsonText(merged, commands);
+  const parsed = JSON.parse(mergedAgain);
+
+  assert.equal(parsed.theme, "dark");
+  assert.equal(parsed.hooks.Stop.length, 2);
+  assert.equal(parsed.hooks.UserPromptSubmit.length, 1);
 });
 
 test("installWorklogHook installs project-scoped files and merges config", async () => {
@@ -276,6 +349,73 @@ test("installKiroHook installs the managed Kiro hook file into a project", async
   assert.match(hookText, /raw-YYYY-MM-DD\.md/);
 });
 
+test("installClaudeHook installs managed Claude Code files and settings into a project", async () => {
+  const tempRoot = await mkdtemp(
+    path.join(os.tmpdir(), "claude-work-log-project-"),
+  );
+  const repoRoot = path.join(tempRoot, "repo");
+  await mkdir(repoRoot, { recursive: true });
+
+  const result = await installClaudeHook({
+    scope: "project",
+    targetRoot: repoRoot,
+    force: false,
+  });
+
+  const settings = JSON.parse(
+    await readFile(path.join(repoRoot, ".claude", "settings.json"), "utf8"),
+  );
+
+  assert.equal(result.settingsPath, path.join(repoRoot, ".claude", "settings.json"));
+  assert.ok(settings.hooks.UserPromptSubmit?.length);
+  assert.ok(settings.hooks.Stop?.length);
+
+  for (const relativePath of [
+    "cache_user_prompt.py",
+    "log_turn.py",
+    "summary_schema.json",
+    "manifest.json",
+  ]) {
+    const installed = path.join(
+      repoRoot,
+      ".claude",
+      "worklog-hook",
+      relativePath,
+    );
+    const content = await readFile(installed, "utf8");
+    assert.ok(content.length > 0);
+  }
+});
+
+test("installClaudeHook installs global-scoped files under the target .claude root even when it does not exist yet", async () => {
+  const tempRoot = await mkdtemp(
+    path.join(os.tmpdir(), "claude-work-log-global-"),
+  );
+  const homeRoot = path.join(tempRoot, "home");
+  const claudeRoot = path.join(homeRoot, ".claude");
+
+  await installClaudeHook({
+    scope: "global",
+    targetRoot: claudeRoot,
+    force: false,
+  });
+
+  const settings = JSON.parse(
+    await readFile(path.join(claudeRoot, "settings.json"), "utf8"),
+  );
+  const promptHooks = settings.hooks.UserPromptSubmit.flatMap(
+    (entry) => entry.hooks ?? [],
+  );
+
+  assert.ok(
+    promptHooks.some(
+      (hook) =>
+        hook.command.includes(path.join(claudeRoot, "worklog-hook")) &&
+        hook.statusMessage === HOOK_STATUS_MESSAGES.userPromptSubmit,
+    ),
+  );
+});
+
 test("cache_user_prompt ignores internal title-generation prompts", async () => {
   const { worktreeRoot, hookRoot } = await prepareHookRepo();
 
@@ -370,6 +510,65 @@ test("log_turn writes real user prompts and skips internal prompts", async () =>
         CODEX_HOOK_DISABLE_AI: "1",
       },
     },
+  );
+
+  const finalLog = await readFile(logFile, "utf8");
+  assert.equal((finalLog.match(/### \[/g) ?? []).length, 1);
+  assert.doesNotMatch(finalLog, /Generate a concise UI title/);
+});
+
+test("Claude hooks write real user prompts and skip internal prompts", async () => {
+  const { worktreeRoot, hookRoot } = await prepareClaudeHookRepo();
+  const cacheScript = path.join(hookRoot, "cache_user_prompt.py");
+  const logScript = path.join(hookRoot, "log_turn.py");
+
+  runHookScript(
+    cacheScript,
+    {
+      session_id: "claude-user-session",
+      cwd: worktreeRoot,
+      prompt: "帮我看下 claude 的日志装好了没",
+    },
+    { cwd: worktreeRoot },
+  );
+
+  await writeFile(path.join(worktreeRoot, "notes.txt"), "updated\n", "utf8");
+
+  runHookScript(
+    logScript,
+    {
+      session_id: "claude-user-session",
+      cwd: worktreeRoot,
+      stop_hook_active: false,
+      last_assistant_message: "我已经核对了 Claude 日志输出。",
+    },
+    { cwd: worktreeRoot },
+  );
+
+  const logFile = await findClaudeLogFile(worktreeRoot);
+  const userLog = await readFile(logFile, "utf8");
+  assert.match(userLog, /帮我看下 claude 的日志装好了没/);
+  assert.equal((userLog.match(/### \[/g) ?? []).length, 1);
+
+  runHookScript(
+    cacheScript,
+    {
+      session_id: "claude-internal-session",
+      cwd: worktreeRoot,
+      prompt: internalTitlePrompt,
+    },
+    { cwd: worktreeRoot },
+  );
+
+  runHookScript(
+    logScript,
+    {
+      session_id: "claude-internal-session",
+      cwd: worktreeRoot,
+      stop_hook_active: false,
+      last_assistant_message: "查看日志效果",
+    },
+    { cwd: worktreeRoot },
   );
 
   const finalLog = await readFile(logFile, "utf8");
