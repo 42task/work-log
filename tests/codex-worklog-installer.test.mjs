@@ -17,6 +17,7 @@ import {
 import {
   HOOK_STATUS_MESSAGES,
   buildHookCommands,
+  installKiroHook,
   installWorklogHook,
   mergeHooksJsonText,
   upsertCodexHooksFeature,
@@ -249,6 +250,30 @@ test("installWorklogHook installs global-scoped files under the target .codex ro
         hook.statusMessage === HOOK_STATUS_MESSAGES.userPromptSubmit,
     ),
   );
+});
+
+test("installKiroHook installs the managed Kiro hook file into a project", async () => {
+  const tempRoot = await mkdtemp(
+    path.join(os.tmpdir(), "kiro-worklog-project-"),
+  );
+  const repoRoot = path.join(tempRoot, "repo");
+  await mkdir(repoRoot, { recursive: true });
+
+  const result = await installKiroHook({
+    targetRoot: repoRoot,
+  });
+
+  const installedHook = path.join(
+    repoRoot,
+    ".kiro",
+    "hooks",
+    "record-worklog.kiro.hook",
+  );
+  const hookText = await readFile(installedHook, "utf8");
+
+  assert.equal(result.hookPath, installedHook);
+  assert.match(hookText, /"type": "agentStop"/);
+  assert.match(hookText, /raw-YYYY-MM-DD\.md/);
 });
 
 test("cache_user_prompt ignores internal title-generation prompts", async () => {

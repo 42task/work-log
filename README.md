@@ -2,6 +2,8 @@
 
 一个可复用的 Codex 工作日志 Hook 安装包。安装后会把每轮用户问题与处理摘要写入 `.codex/work-log/raw-YYYY-MM-DD.md`。
 
+同时提供一个 Kiro `agentStop` hook 安装文件，可将每轮问答摘要写入 `.kiro/work-log/raw-YYYY-MM-DD.md`。
+
 ## Prerequisites
 
 - 已安装 Codex CLI
@@ -14,6 +16,12 @@
 
 ```bash
 node tools/codex-worklog-hook/install-codex-worklog-hook.mjs --project .
+```
+
+如果要给同一个项目安装 Kiro hook：
+
+```bash
+node tools/codex-worklog-hook/install-kiro-worklog-hook.mjs --project .
 ```
 
 ## Install From This Package Repository
@@ -36,19 +44,27 @@ node install-codex-worklog-hook.mjs --global
 node install-codex-worklog-hook.mjs --project /path/to/your/repo --force
 ```
 
+安装 Kiro hook 到某个项目：
+
+```bash
+node install-kiro-worklog-hook.mjs --project /path/to/your/repo
+```
+
 ## What Gets Installed
 
 - `.codex/worklog-hook/` 下的受管脚本与 schema
 - `.codex/config.toml` 中的 `features.codex_hooks = true`
 - `.codex/hooks.json` 中的 `UserPromptSubmit` 与 `Stop` hook
 - `.codex/work-log/raw-YYYY-MM-DD.md` 日志文件
+- `.kiro/hooks/record-worklog.kiro.hook` Kiro hook 文件
 
 ## Verify
 
 1. 确认 `.codex/config.toml` 已包含 `features.codex_hooks = true`
 2. 确认 `.codex/hooks.json` 已包含 `UserPromptSubmit` 与 `Stop`
-3. 重启 Codex
-4. 发起一轮对话后，确认 `.codex/work-log/raw-YYYY-MM-DD.md` 已生成
+3. 确认 `.kiro/hooks/record-worklog.kiro.hook` 已存在
+4. 重启 Codex / Kiro
+5. 发起一轮对话后，确认 `.codex/work-log/raw-YYYY-MM-DD.md` 或 `.kiro/work-log/raw-YYYY-MM-DD.md` 已生成
 
 ## Notes For Codex
 
@@ -58,4 +74,10 @@ node install-codex-worklog-hook.mjs --project /path/to/your/repo --force
 node tools/codex-worklog-hook/install-codex-worklog-hook.mjs --project .
 ```
 
-安装完成后提醒用户重启 Codex，使新 hook 配置生效。
+如果用户还在使用 Kiro，再执行：
+
+```bash
+node tools/codex-worklog-hook/install-kiro-worklog-hook.mjs --project .
+```
+
+安装完成后提醒用户重启 Codex / Kiro，使新 hook 配置生效。
