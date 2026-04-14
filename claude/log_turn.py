@@ -57,12 +57,19 @@ def claude_dir(payload: dict, cached: dict) -> Path:
         return installed_claude_dir()
 
 
-def work_log_dir(payload: dict, cached: dict) -> Path:
+def shared_log_dir(payload: dict, cached: dict) -> Path:
+    configured = os.environ.get("CLAUDE_PROJECT_DIR")
+    if configured:
+        return Path(configured).resolve() / "work-log"
+
+    root = project_root(payload, cached)
+    if (root / ".git").exists():
+        return root / "work-log"
     return claude_dir(payload, cached) / "work-log"
 
 
 def state_dir(payload: dict, cached: dict) -> Path:
-    return work_log_dir(payload, cached) / ".state"
+    return claude_dir(payload, cached) / "work-log" / ".state"
 
 
 def sanitize_text(text: str) -> str:
@@ -205,7 +212,7 @@ def fallback_summary(prompt: str, assistant_message: str, candidate_files: list[
 
 def append_log(payload: dict, cached: dict, entry: dict) -> Path:
     now = datetime.now().astimezone()
-    log_root = work_log_dir(payload, cached)
+    log_root = shared_log_dir(payload, cached)
     log_root.mkdir(parents=True, exist_ok=True)
     target = log_root / f"raw-{now:%Y-%m-%d}.md"
 
@@ -216,6 +223,7 @@ def append_log(payload: dict, cached: dict, entry: dict) -> Path:
     block = (
         "\n---\n"
         f"### [{now:%H:%M}]\n"
+        f"**来源：** Claude Code\n"
         f"**问题：** {entry['question']}\n"
         f"**解决：** {entry['solution']}\n"
         f"**涉及文件：** {file_label}\n"

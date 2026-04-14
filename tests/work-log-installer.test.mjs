@@ -134,7 +134,7 @@ async function findLogFile(worktreeRoot) {
 }
 
 async function findClaudeLogFile(worktreeRoot) {
-  const logRoot = path.join(worktreeRoot, ".claude", "work-log");
+  const logRoot = path.join(worktreeRoot, "work-log");
   const entries = await readdir(logRoot);
   const rawLog = entries.find((entry) => entry.startsWith("raw-"));
   assert.ok(rawLog, "expected a raw Claude work-log file to be created");
@@ -549,6 +549,7 @@ test("Claude hooks write real user prompts and skip internal prompts", async () 
   const logFile = await findClaudeLogFile(worktreeRoot);
   const userLog = await readFile(logFile, "utf8");
   assert.match(userLog, /帮我看下 claude 的日志装好了没/);
+  assert.match(userLog, /\*\*来源：\*\* Claude Code/);
   assert.equal((userLog.match(/### \[/g) ?? []).length, 1);
 
   runHookScript(
