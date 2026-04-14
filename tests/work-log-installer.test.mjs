@@ -346,7 +346,8 @@ test("installKiroHook installs the managed Kiro hook file into a project", async
 
   assert.equal(result.hookPath, installedHook);
   assert.match(hookText, /"type": "agentStop"/);
-  assert.match(hookText, /raw-YYYY-MM-DD\.md/);
+  assert.match(hookText, /\.\/work-log\/raw-YYYY-MM-DD\.md/);
+  assert.match(hookText, /\*\*来源：\*\* Kiro/);
 });
 
 test("installClaudeHook installs managed Claude Code files and settings into a project", async () => {

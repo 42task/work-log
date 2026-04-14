@@ -1,13 +1,13 @@
 # Work Log
 
-一个可复用的工作日志安装包，支持 Codex、Kiro 和 Claude Code。安装后会把每轮用户问题与处理摘要写入对应工具目录下的 `work-log/raw-YYYY-MM-DD.md`。
+一个可复用的工作日志安装包，支持 Codex、Kiro 和 Claude Code。安装后会把每轮用户问题与处理摘要统一写入项目根目录下的 `./work-log/raw-YYYY-MM-DD.md`。
 
 ## Prerequisites
 
 - 已安装 Node.js
 - 使用 Codex 时，已安装 Codex CLI
 - 使用 Claude Code 时，已安装 Claude Code
-- 目标目录下可写 `.codex/`、`.kiro/` 或 `.claude/`
+- 目标目录下可写 `.codex/`、`.kiro/`、`.claude/` 与项目根目录
 
 ## Install In This Repository
 
@@ -72,11 +72,12 @@ node install-claude-code-work-log.mjs --global
 - `.codex/worklog-hook/` 下的受管脚本与 schema
 - `.codex/config.toml` 中的 `features.codex_hooks = true`
 - `.codex/hooks.json` 中的 `UserPromptSubmit` 与 `Stop` hook
-- `.codex/work-log/raw-YYYY-MM-DD.md` 日志文件
+- `.codex/work-log/.state/` 用于 Codex prompt / turn 缓存
 - `.kiro/hooks/record-worklog.kiro.hook` Kiro hook 文件
 - `.claude/worklog-hook/` 下的受管脚本与 schema
 - `.claude/settings.json` 中的 `UserPromptSubmit` 与 `Stop` hook
-- `.claude/work-log/raw-YYYY-MM-DD.md` 日志文件
+- `.claude/work-log/.state/` 用于 Claude Code session 缓存
+- `./work-log/raw-YYYY-MM-DD.md` 共享最终日志文件
 
 ## Verify
 
@@ -85,7 +86,11 @@ node install-claude-code-work-log.mjs --global
 3. 确认 `.kiro/hooks/record-worklog.kiro.hook` 已存在
 4. 确认 `.claude/settings.json` 已包含 `UserPromptSubmit` 与 `Stop`
 5. 重启 Codex / Kiro / Claude Code
-6. 发起一轮对话后，确认 `.codex/work-log/raw-YYYY-MM-DD.md`、`.kiro/work-log/raw-YYYY-MM-DD.md` 或 `.claude/work-log/raw-YYYY-MM-DD.md` 已生成
+6. 发起一轮对话后，确认项目根目录下的 `./work-log/raw-YYYY-MM-DD.md` 已生成
+
+## Git Ignore
+
+如果不希望把日志提交到仓库，请自行决定是否将 `work-log/` 加入 `.gitignore`。安装器不会自动修改你的忽略规则。
 
 ## Notes For Agents
 
