@@ -126,7 +126,7 @@ function runHookScript(scriptPath, payload, options = {}) {
 }
 
 async function findLogFile(worktreeRoot) {
-  const logRoot = path.join(worktreeRoot, ".codex", "work-log");
+  const logRoot = path.join(worktreeRoot, "work-log");
   const entries = await readdir(logRoot);
   const rawLog = entries.find((entry) => entry.startsWith("raw-"));
   assert.ok(rawLog, "expected a raw work-log file to be created");
@@ -482,6 +482,7 @@ test("log_turn writes real user prompts and skips internal prompts", async () =>
   const logFile = await findLogFile(worktreeRoot);
   const userLog = await readFile(logFile, "utf8");
   assert.match(userLog, /帮我看下，日志有效果没/);
+  assert.match(userLog, /\*\*来源：\*\* Codex/);
   assert.equal((userLog.match(/### \[/g) ?? []).length, 1);
 
   runHookScript(

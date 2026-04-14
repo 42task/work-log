@@ -57,12 +57,15 @@ def codex_dir(payload: dict, cached: dict) -> Path:
     return installed_codex_dir()
 
 
-def work_log_dir(payload: dict, cached: dict) -> Path:
+def shared_log_dir(payload: dict, cached: dict) -> Path:
+    root = workspace_root(payload, cached)
+    if (root / ".git").exists():
+        return root / "work-log"
     return codex_dir(payload, cached) / "work-log"
 
 
 def state_dir(payload: dict, cached: dict) -> Path:
-    return work_log_dir(payload, cached) / ".state"
+    return codex_dir(payload, cached) / "work-log" / ".state"
 
 
 def summary_schema_path() -> Path:
@@ -303,7 +306,7 @@ def normalize_summary(summary: dict, candidate_files: list[str]) -> dict:
 
 def append_log(payload: dict, cached: dict, entry: dict) -> Path:
     now = datetime.now().astimezone()
-    log_root = work_log_dir(payload, cached)
+    log_root = shared_log_dir(payload, cached)
     log_root.mkdir(parents=True, exist_ok=True)
     target = log_root / f"raw-{now:%Y-%m-%d}.md"
 
@@ -314,6 +317,7 @@ def append_log(payload: dict, cached: dict, entry: dict) -> Path:
     block = (
         "\n---\n"
         f"### [{now:%H:%M}]\n"
+        f"**来源：** Codex\n"
         f"**问题：** {entry['question']}\n"
         f"**解决：** {entry['solution']}\n"
         f"**涉及文件：** {file_label}\n"
